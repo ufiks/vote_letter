@@ -81,22 +81,12 @@ def vote() -> json:
     return jsonify(get_db())
 
 
-@app.route('/topletter', methods=['Get'])
-def top_letters() -> json:
-     for key, value in get_db().items():
-        for key, value in get_db().items():
-            max_value = max(value)
-        if value == max_value:
-            max_letter,value=key,value # почти работает
-            return jsonify(max_letter)
-    # --------------------------------------------------------
-    ## работает но тут я не особо, что изменил
-    #max_letter, max_value = 'A', 0
-    #for key, value in get_db().items():
-    #    if int(value) > int(max_value):
-    #        max_letter, max_value = key, value
-#
-    #return jsonify(max_letter), 200
+@app.route('/maxvoted', methods=['Get'])
+def maxvoted() -> json:
+    votes = 'votes_number:'
+    maxed_sum = sum(int(v) for v in get_db().values())
+
+    return jsonify(votes + str(maxed_sum))
 
 
 initialize()
