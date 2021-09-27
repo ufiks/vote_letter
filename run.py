@@ -83,10 +83,9 @@ def vote() -> json:
 
 @app.route('/maxvoted', methods=['Get'])
 def maxvoted() -> json:
-    votes = 'votes_number:'
-    maxed_sum = sum(int(v) for v in get_db().values())
+    sum_votes = sum(int(v) for v in get_db().values())
 
-    return jsonify(votes + str(maxed_sum))
+    return jsonify({'votes_number:': sum_votes})
 
 
 initialize()
