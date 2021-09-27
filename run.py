@@ -1,10 +1,13 @@
-from flask import Flask, request, abort
+from typing import List
+
+from flask import Flask, request, abort, jsonify
 import json
 import redis
 
 app = Flask(__name__)
 redis = redis.Redis(host='127.0.0.1')
-all_letters = {
+hashset_name = 'votting'
+init_values = {
     'A': 0,
     'B': 0,
     'C': 0,
@@ -12,44 +15,90 @@ all_letters = {
 }
 
 
-def get_all_letters(*args):
-    value = redis.get(*args)
-    letters_decode = value.decode("utf-8")
-    new_letters = json.loads(letters_decode.replace("'", '"'))
-    return new_letters
+def initialize() -> None:
+    init_values = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0
+    }
+
+    for key in init_values:
+        value = 0
+        redis.set(key, value)
+
+
+def get_all_keys() -> List[str]:
+    all_keys = list(redis.scan_iter("*"))
+
+    return [key.decode() for key in all_keys]
+
+
+def get_db() -> dict:
+    db = {}
+
+    for key in get_all_keys():
+        value = redis.get(key)
+
+        db[key] = value.decode()
+    return db
 
 
 @app.route('/letters', methods=['Get'])
-def letters():
-    if request.args.get('letter'):
-        name_letter = get_all_letters('all_letters')
-        dels = name_letter[request.args.get('letter')]
-        return {'numberOfVotes': dels }, 200
-    else:
-        del_letters = get_all_letters('all_letters')
-        return del_letters, 200
+def letters() -> json:
+    query_letter = request.args.get('letter', None)
+
+    if query_letter is None:
+        return jsonify(get_db()), 200
+
+    if query_letter not in get_all_keys():
+        abort(400, 'Letter does not exist in database')
+    decoded_query_letter = redis.get(query_letter)
+    result = {
+        query_letter: decoded_query_letter.decode()
+    }
+
+    return jsonify(result), 200
 
 
 @app.route('/vote', methods=['Post'])
-def vote():
+def vote() -> json:
+    required_key = 'letter'
     body = json.loads(request.data)
-    letters_in_redis = get_all_letters('all_letters')
-    if 'letter' not in letters_in_redis:
-        abort(400, 'letter not detected')
-    if body.get('letter') in letters_in_redis:
-        current = letters_in_redis[request.args.get('letter')]
-        current += 1
-        redis.set(request.args.get('letter'), current)
-        return json.dumps(letters_in_redis)
+    if required_key not in body:
+        abort(400, 'did not send letter')
+
+    target_letter = body[required_key]
+
+    if target_letter not in get_all_keys():
+        abort(400, 'your key is not in the database')
+
+    db = get_db()
+    current = int(db[target_letter])
+    current += 1
+    redis.set(target_letter, current)
+
+    return jsonify(get_db())
 
 
-@app.route('/topletters', methods=['Get'])
-def top_letters():
-    topletter = get_all_letters('all_letters')
-    return json.dumps(topletter), 200
+@app.route('/topletter', methods=['Get'])
+def top_letters() -> json:
+     for key, value in get_db().items():
+        for key, value in get_db().items():
+            max_value = max(value)
+        if value == max_value:
+            max_letter,value=key,value # почти работает
+            return jsonify(max_letter)
+    # --------------------------------------------------------
+    ## работает но тут я не особо, что изменил
+    #max_letter, max_value = 'A', 0
+    #for key, value in get_db().items():
+    #    if int(value) > int(max_value):
+    #        max_letter, max_value = key, value
+#
+    #return jsonify(max_letter), 200
 
 
-redis.set('all_letters', str(all_letters))
-
+initialize()
 if __name__ == '__main__':
     app.run(debug=True)
