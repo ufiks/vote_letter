@@ -1,51 +1,14 @@
-from typing import List
-
-from flask import Flask, request, abort, jsonify
 import json
+from typing import Tuple
+
 import redis
-
-app = Flask(__name__)
-redis = redis.Redis(host='127.0.0.1')
-hashset_name = 'votting'
-init_values = {
-    'A': 0,
-    'B': 0,
-    'C': 0,
-    'D': 0
-}
-
-
-def initialize() -> None:
-    init_values = {
-        'A': 0,
-        'B': 0,
-        'C': 0,
-        'D': 0
-    }
-
-    for key in init_values:
-        value = 0
-        redis.set(key, value)
-
-
-def get_all_keys() -> List[str]:
-    all_keys = list(redis.scan_iter("*"))
-
-    return [key.decode() for key in all_keys]
-
-
-def get_db() -> dict:
-    db = {}
-
-    for key in get_all_keys():
-        value = redis.get(key)
-
-        db[key] = value.decode()
-    return db
+from flask import request, abort, jsonify, Response
+from instances import redis, app
+from services import initialize, get_all_keys, get_db
 
 
 @app.route('/letters', methods=['Get'])
-def letters() -> json:
+def letters() -> Tuple[Response, int]:
     query_letter = request.args.get('letter', None)
 
     if query_letter is None:
@@ -62,7 +25,7 @@ def letters() -> json:
 
 
 @app.route('/vote', methods=['Post'])
-def vote() -> json:
+def vote() -> Tuple[Response, int]:
     required_key = 'letter'
     body = json.loads(request.data)
     if required_key not in body:
@@ -78,14 +41,14 @@ def vote() -> json:
     current += 1
     redis.set(target_letter, current)
 
-    return jsonify(get_db())
+    return jsonify(get_db()), 201
 
 
 @app.route('/maxvoted', methods=['Get'])
-def maxvoted() -> json:
+def maxvoted() -> Tuple[Response, int]:
     sum_votes = sum(int(v) for v in get_db().values())
 
-    return jsonify({'votes_number:': sum_votes})
+    return jsonify({'votes_number': sum_votes}), 200
 
 
 initialize()
